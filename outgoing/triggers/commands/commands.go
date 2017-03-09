@@ -47,14 +47,22 @@ func (p *Commands) Handle(req *outgoing.Request) outgoing.Response {
 		return outgoing.Response{Text: "command argument is too less"}
 	}
 
-	commandName := args[1]
+	var newArgs []string
+	for i := 0; i < len(args); i++ {
+		s := strings.TrimSpace(args[i])
+		if len(s) != 0 {
+			newArgs = append(newArgs, s)
+		}
+	}
+
+	commandName := newArgs[1]
 
 	binPath, exist := p.namepath[commandName]
 	if !exist {
 		return outgoing.Response{Text: "command not exist"}
 	}
 
-	result, err := execCommand(p.timeout, binPath, args[2:]...)
+	result, err := execCommand(p.timeout, binPath, newArgs[2:]...)
 
 	if err != nil {
 		return outgoing.Response{Text: err.Error()}
