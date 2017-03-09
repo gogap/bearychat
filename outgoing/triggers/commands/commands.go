@@ -29,8 +29,6 @@ func NewCommands(word string, config *configuration.Config) (outgoing.Trigger, e
 	if commandConfig != nil {
 		commandNames := commandConfig.Root().GetObject().GetKeys()
 
-		namePath := make(map[string]string)
-
 		for i := 0; i < len(commandNames); i++ {
 			namePath[commandNames[i]] = commandConfig.GetString(commandNames[i])
 		}
