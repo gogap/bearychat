@@ -1,0 +1,42 @@
+{
+        http.address=":3000"
+
+        outgoing {
+                words {
+                        hello {
+                            driver = gogap-outgoing
+                            options {
+                                validate_token = false
+                                tokens = ["a5abc87ce0dcd169d4560385c2be9d3a"]
+
+                                words {
+                                    hello {
+                                            driver = gogap-greeter
+                                            options.name = "Robot GoGap"
+                                            options.image = "https://avatars2.githubusercontent.com/u/8731757?v=3&s=200"
+                                        }
+                                }
+                            }
+                        }
+                        cmd {
+                            driver = gogap-outgoing
+                            options {
+                                validate_token = false
+                                tokens = ["8831067e28290392313ca4d81356abe3"]
+
+                                words {
+                                    cmd {
+                                            driver = gogap-commands
+                                            options {
+                                                    timeout = 5s
+                                                    commands = {
+                                                            ping = ping
+                                                    }
+                                            }
+                                    }
+                                }
+                            }
+                        }
+                }
+        }
+}
