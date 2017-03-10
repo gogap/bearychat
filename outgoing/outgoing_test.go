@@ -1,6 +1,7 @@
 package outgoing
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/go-akka/configuration"
@@ -22,159 +23,42 @@ func NewGreeter(word string, config *configuration.Config) (Trigger, error) {
 	}, nil
 }
 
-func (p *Greeter) Handle(req *Request) Response {
-
+func (p *Greeter) Handle(req *Request, resp *Response) error {
 	switch req.TriggerWord {
 	case "!hello":
 		{
-			return Response{
-				Text: "Hello " + req.UserName + " I am " + p.name,
-			}
+			resp.Text = "Hello " + req.UserName + " I am " + p.name
+			return nil
 		}
 	case "!morning":
 		{
-			return Response{
-				Text: "Morning " + req.UserName + " I am " + p.name,
-			}
+			resp.Text = "Morning " + req.UserName + " I am " + p.name
+			return nil
 		}
 	}
 
-	return Response{
-		Text: "Unknown TriggerWord",
-	}
-
-}
-
-func TestOutgoingAuthTokenValiedate(t *testing.T) {
-
-	confStr := `
-	{
-		validate_token = true
-		tokens = ["abc"]
-
-		words {
-			hello = {
-				driver = test-greeter
-				options.name = "robot A"
-			}
-		}
-	}
-
-	`
-
-	config := configuration.ParseString(confStr)
-
-	outgoing, err := NewOutgoing(config)
-
-	if outgoing == nil {
-		t.Error(err)
-		return
-	}
-
-	req1 := &Request{
-		Text:        "!hello my name is zeal",
-		UserName:    "zeal",
-		TriggerWord: "!hello",
-	}
-
-	resp1 := outgoing.Handle(req1)
-	if resp1.Text != "bad auth token" {
-		t.Error("bad !hello trigger response: " + resp1.Text)
-		return
-	}
-
-	req2 := &Request{
-		Text:        "!hello my name is zeal",
-		UserName:    "zeal",
-		TriggerWord: "!hello",
-		Token:       "abc",
-	}
-
-	resp2 := outgoing.Handle(req2)
-	if resp2.Text != "Hello zeal I am robot A" {
-		t.Error("bad !hello trigger response: " + resp2.Text)
-		return
-	}
-}
-
-func TestOutgoingAuthTokenValiedate2(t *testing.T) {
-
-	confStr := `
-	{
-		words {
-			hello = {
-				driver = gogap-outgoing
-				options = {
-					validate_token = true
-					tokens = ["bcd"]
-
-					words {
-						hello = {	
-							driver = test-greeter
-							options.name = "robot A"
-						}
-					}
-				}
-			}
-		}
-	}
-
-	`
-
-	config := configuration.ParseString(confStr)
-
-	outgoing, err := NewOutgoing(config)
-
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	req := &Request{
-		Text:        "!hello my name is zeal",
-		UserName:    "zeal",
-		TriggerWord: "!hello",
-		Token:       "abc",
-	}
-
-	resp := outgoing.Handle(req)
-	if resp.Text != "bad auth token" {
-		t.Error("bad !hello trigger response: " + resp.Text)
-		return
-	}
-
-	req2 := &Request{
-		Text:        "!hello my name is zeal",
-		UserName:    "zeal",
-		TriggerWord: "!hello",
-		Token:       "bcd",
-	}
-
-	resp2 := outgoing.Handle(req2)
-	if resp2.Text != "Hello zeal I am robot A" {
-		t.Error("bad !hello trigger response: " + resp2.Text)
-		return
-	}
+	return errors.New("Unknown TriggerWord")
 }
 
 func TestBasicOutgoingRequest(t *testing.T) {
 
 	confStr := `
 	{
-		options = {
+ 		hello = {
+ 			word = "!hello"
+			drivers = [test-greeter]
 
+			test-greeter = {
+				name = "robot A"
+			}
 		}
 
-		words {
+		morning = {
+			word = "!morning"
+			drivers = [test-greeter]
 
-			hello = {
-				driver = test-greeter
-				options.name = "robot A"
-			}
-
-			morning = {
-				driver = test-greeter
-				options.name = "robot B"
+			test-greeter = {
+				name = "robot B"
 			}
 		}
 	}
@@ -202,13 +86,26 @@ func TestBasicOutgoingRequest(t *testing.T) {
 		TriggerWord: "!morning",
 	}
 
-	resp1 := outgoing.Handle(req1)
+	resp1 := Response{}
+	err = outgoing.Handle(req1, &resp1)
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	if resp1.Text != "Hello zeal I am robot A" {
 		t.Error("bad !hello trigger response: " + resp1.Text)
 		return
 	}
 
-	resp2 := outgoing.Handle(req2)
+	resp2 := Response{}
+	err = outgoing.Handle(req2, &resp2)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	if resp2.Text != "Morning gogap I am robot B" {
 		t.Error("bad !morning trigger response: " + resp2.Text)
 		return

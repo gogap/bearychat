@@ -1,5 +1,5 @@
 package outgoing
 
 type Trigger interface {
-	Handle(*Request) Response
+	Handle(*Request, *Response) error
 }

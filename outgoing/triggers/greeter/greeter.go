@@ -1,6 +1,8 @@
 package greeter
 
 import (
+	"errors"
+
 	"github.com/go-akka/configuration"
 	"github.com/gogap/bearychat/outgoing"
 )
@@ -23,39 +25,32 @@ func NewGreeter(word string, config *configuration.Config) (outgoing.Trigger, er
 	}, nil
 }
 
-func (p *Greeter) Handle(req *outgoing.Request) outgoing.Response {
+func (p *Greeter) Handle(req *outgoing.Request, resp *outgoing.Response) error {
 
 	switch req.TriggerWord {
 	case "!hello":
 		{
-			return outgoing.Response{
-				Text: "Hello " + req.UserName + " I am " + p.name,
-				Attachments: []outgoing.Attachment{
-					{
-						Images: []outgoing.Image{
-							{URL: p.image},
-						},
+			resp.Text = "Hello " + req.UserName + " I am " + p.name
+			resp.Attachments = []outgoing.Attachment{
+				{
+					Images: []outgoing.Image{
+						{URL: p.image},
 					},
 				},
 			}
 		}
 	case "!morning":
 		{
-			return outgoing.Response{
-				Text: "Morning " + req.UserName + " I am " + p.name,
-				Attachments: []outgoing.Attachment{
-					{
-						Images: []outgoing.Image{
-							{URL: p.image},
-						},
+			resp.Text = "Morning " + req.UserName + " I am " + p.name
+			resp.Attachments = []outgoing.Attachment{
+				{
+					Images: []outgoing.Image{
+						{URL: p.image},
 					},
 				},
 			}
 		}
 	}
 
-	return outgoing.Response{
-		Text: "Unknown TriggerWord",
-	}
-
+	return errors.New("Known TriggerWord")
 }

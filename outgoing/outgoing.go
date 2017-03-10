@@ -20,13 +20,8 @@ var (
 )
 
 var (
-	ErrNilOutgoingName                = errors.New("nil outgoing name")
-	ErrNilRequest                     = errors.New("nil request")
-	ErrEmptyTriggerWord               = errors.New("empty trigger word")
 	ErrTriggerDriverAlreadyRegistered = errors.New("trigger driver already registered")
 	ErrNewTriggerFuncIsNil            = errors.New("trigger func is nil")
-	ErrNilTrigger                     = errors.New("trigger is nil")
-	ErrBadAuthToken                   = errors.New("bad auth token")
 )
 
 type ErrorHandlerFunc func(cause error) Response
@@ -34,7 +29,7 @@ type ErrorHandlerFunc func(cause error) Response
 type NewTriggerFunc func(word string, config *configuration.Config) (Trigger, error)
 
 type Outgoing struct {
-	triggers map[string]Trigger // map[word]Trigger
+	triggers map[string][]Trigger // map[word]Trigger
 	settings *OutgoingSettings
 
 	config       *configuration.Config
@@ -71,7 +66,7 @@ func RegisterTriggerDriver(name string, fn NewTriggerFunc) {
 func NewOutgoing(config *configuration.Config) (*Outgoing, error) {
 
 	outgoing := &Outgoing{
-		triggers: make(map[string]Trigger),
+		triggers: make(map[string][]Trigger),
 		config:   config,
 		settings: NewOutgoingSettings(config),
 	}
@@ -87,39 +82,39 @@ func NewOutgoingTrigger(word string, config *configuration.Config) (Trigger, err
 	return NewOutgoing(config)
 }
 
-func (p *Outgoing) GetTrigger(triggerWord string) (trigger Trigger, exist bool) {
-	trigger, exist = p.triggers[triggerWord]
+func (p *Outgoing) GetTrigger(triggerWord string) (triggers []Trigger, exist bool) {
+	triggers, exist = p.triggers[triggerWord]
 	return
 }
 
-func (p *Outgoing) BindTrigger(triggerName string, triggerWords ...string) *Outgoing {
-	if len(triggerWords) == 0 {
+func (p *Outgoing) BindTrigger(config *configuration.Config) *Outgoing {
+	triggerWord := config.GetString("word")
+	triggerWord = strings.TrimSpace(triggerWord)
+
+	drivers := config.GetStringList("drivers")
+
+	if len(triggerWord) == 0 {
 		return p
 	}
 
-	if len(triggerName) == 0 {
-		panic("trigger name could not be empty")
+	if len(drivers) == 0 {
+		return p
 	}
 
-	words := removeDuplicates(triggerWords)
+	names := removeDuplicates(drivers)
 
-	for i := 0; i < len(words); i++ {
-		word := strings.TrimSpace(words[i])
-		if len(word) == 0 {
-			panic("word could not be empty")
-		}
-
-		triggerDriver, exist := triggerFuncs[triggerName]
+	for i := 0; i < len(names); i++ {
+		triggerDriver, exist := triggerFuncs[names[i]]
 		if !exist {
-			panic(fmt.Errorf("the trigger of %s did not exist", triggerName))
+			panic(fmt.Errorf("the trigger of %s did not exist", names[i]))
 		}
 
-		trigger, err := triggerDriver(word, p.config.GetConfig("words").GetConfig(word).GetConfig("options"))
+		trigger, err := triggerDriver(triggerWord, config.GetConfig(names[i]))
 		if err != nil {
 			panic(err)
 		}
 
-		p.triggers[word] = trigger
+		p.triggers[triggerWord] = append(p.triggers[triggerWord], trigger)
 	}
 
 	return p
@@ -136,27 +131,7 @@ func (p *Outgoing) Words() []string {
 	return ret
 }
 
-func (p *Outgoing) BindTriggerDirect(trigger Trigger, triggerWords ...string) *Outgoing {
-
-	if trigger == nil {
-		panic(ErrNilTrigger)
-	}
-
-	words := removeDuplicates(triggerWords)
-
-	for i := 0; i < len(words); i++ {
-		word := strings.TrimSpace(words[i])
-		if len(word) == 0 {
-			panic("word could not be empty")
-		}
-
-		p.triggers[word] = trigger
-	}
-
-	return p
-}
-
-func (p *Outgoing) UnbindTrigger(triggerWords ...string) {
+func (p *Outgoing) UnbindTriggers(triggerWords ...string) {
 	for i := 0; i < len(triggerWords); i++ {
 		delete(p.triggers, triggerWords[i])
 	}
@@ -169,19 +144,21 @@ func (p *Outgoing) SetErrorHandler(handler ErrorHandlerFunc) {
 	}
 }
 
-func (p *Outgoing) Handle(req *Request) Response {
-	if err := p.validateRequest(req); err != nil {
-		return p.errorHandler(err)
-	}
+func (p *Outgoing) Handle(req *Request, resp *Response) error {
 
-	word := strings.TrimLeft(req.TriggerWord, "!")
-	trigger, exist := p.triggers[word]
+	word := strings.TrimSpace(req.TriggerWord)
+	triggers, exist := p.triggers[word]
 	if !exist {
-		err := fmt.Errorf("trigger of %s not exist!", word)
-		return p.errorHandler(err)
+		return fmt.Errorf("trigger of %s not exist!", word)
 	}
 
-	return trigger.Handle(req)
+	for i := 0; i < len(triggers); i++ {
+		if err := triggers[i].Handle(req, resp); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (p *Outgoing) HandleHttpRequest(rw http.ResponseWriter, req *http.Request) {
@@ -197,41 +174,20 @@ func (p *Outgoing) HandleHttpRequest(rw http.ResponseWriter, req *http.Request) 
 	triggerReq := &Request{}
 	err := decoder.Decode(triggerReq)
 
-	var resp Response
+	resp := Response{}
 	if err != nil {
 		resp = p.errorHandler(err)
 	} else {
-		resp = p.Handle(triggerReq)
+		err = p.Handle(triggerReq, &resp)
+		if err != nil {
+			resp = p.errorHandler(err)
+		}
 	}
 
 	jsonResp, _ := json.Marshal(resp)
 
 	rw.Header().Set("Content-Type", "application/json")
 	rw.Write(jsonResp)
-}
-
-func (p *Outgoing) validateRequest(req *Request) error {
-	if req == nil {
-		return ErrNilRequest
-	}
-
-	if len(strings.TrimSpace(req.TriggerWord)) == 0 {
-		return ErrEmptyTriggerWord
-	}
-
-	if p.settings.ValidateToken {
-		if len(p.settings.Tokens) > 0 {
-			for i := 0; i < len(p.settings.Tokens); i++ {
-				if req.Token == p.settings.Tokens[i] {
-					return nil
-				}
-			}
-
-			return ErrBadAuthToken
-		}
-	}
-
-	return nil
 }
 
 func (p *Outgoing) handleError(cause error) Response {
@@ -245,13 +201,10 @@ func (p *Outgoing) autoBind(config *configuration.Config) {
 		return
 	}
 
-	wordsConfig := config.GetConfig("words")
+	keys := p.config.Root().GetObject().GetKeys()
 
-	words := wordsConfig.Root().GetObject().GetKeys()
-
-	for i := 0; i < len(words); i++ {
-		driver := wordsConfig.GetConfig(words[i]).GetString("driver")
-		p.BindTrigger(driver, words[i])
+	for i := 0; i < len(keys); i++ {
+		p.BindTrigger(p.config.GetConfig(keys[i]))
 	}
 }
 

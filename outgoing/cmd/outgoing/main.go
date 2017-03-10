@@ -64,8 +64,10 @@ func cmdRun(c *cli.Context) (err error) {
 
 	words := out.Words()
 
+	path := httpConfig.GetString("path")
+
 	for _, word := range words {
-		mux.HandleFunc("/"+word, out.HandleHttpRequest)
+		mux.HandleFunc(path+"/"+word, out.HandleHttpRequest)
 	}
 
 	n := negroni.Classic()
@@ -83,5 +85,4 @@ func initOutgoing(config *configuration.Config) (*outgoing.Outgoing, error) {
 	}
 
 	return outgoing, nil
-
 }
