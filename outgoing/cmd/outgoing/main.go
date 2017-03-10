@@ -62,13 +62,9 @@ func cmdRun(c *cli.Context) (err error) {
 
 	mux := http.NewServeMux()
 
-	words := out.Words()
-
 	path := httpConfig.GetString("path")
 
-	for _, word := range words {
-		mux.HandleFunc(path+"/"+word, out.HandleHttpRequest)
-	}
+	mux.HandleFunc(path, out.HandleHttpRequest)
 
 	n := negroni.Classic()
 	n.UseHandler(mux)
