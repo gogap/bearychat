@@ -27,8 +27,16 @@
 
             gogap-greeter = {
                timeout = 5s
+                cwd = /
                 commands = {
-                    ping = ping
+                    ping = {
+                        cmd = ping
+                    }
+
+                    ls = {
+                        cmd = ls
+                        cwd = /Users/zeal
+                    }
                 }
             }
         }
