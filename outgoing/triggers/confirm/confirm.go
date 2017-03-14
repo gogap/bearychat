@@ -38,7 +38,7 @@ func NewConfirm(word string, config *configuration.Config) (outgoing.Trigger, er
 	}
 
 	if config != nil {
-		confirm.prompt = config.GetString("prompt")
+		confirm.prompt = config.GetString("prompt", "please input number for comfirm")
 	} else {
 		confirm.prompt = "please input number for comfirm"
 	}
