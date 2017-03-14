@@ -16,7 +16,7 @@ type Request struct {
 
 func (p *Request) Args() []string {
 
-	strArgs := strings.TrimSpace(strings.TrimLeft(p.Text, p.TriggerWord))
+	strArgs := strings.TrimSpace(strings.TrimPrefix(p.Text, p.TriggerWord))
 
 	if len(strArgs) == 0 {
 		return nil
