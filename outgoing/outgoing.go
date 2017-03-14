@@ -22,6 +22,7 @@ var (
 var (
 	ErrTriggerDriverAlreadyRegistered = errors.New("trigger driver already registered")
 	ErrNewTriggerFuncIsNil            = errors.New("trigger func is nil")
+	ErrBreakOnly                      = errors.New("break only")
 )
 
 type ErrorHandlerFunc func(cause error) Response
@@ -179,6 +180,10 @@ func (p *Outgoing) HandleHttpRequest(rw http.ResponseWriter, req *http.Request) 
 		resp = p.errorHandler(err)
 	} else {
 		err = p.Handle(triggerReq, &resp)
+		if err == ErrBreakOnly {
+			err = nil
+		}
+
 		if err != nil {
 			resp = p.errorHandler(err)
 		}
