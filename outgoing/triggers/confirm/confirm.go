@@ -20,7 +20,7 @@ type Confirm struct {
 	beforeReq        *outgoing.Request
 	randomNumber     int32
 	randomNumberTime time.Time
-	currentHandler   func(req *outgoing.Request, resp *outgoing.Response) (err error)
+	currentHandlers  map[string]outgoing.TriggerHandleFunc
 	defaultHandler   func(req *outgoing.Request, resp *outgoing.Response) (err error)
 
 	sync.Mutex
@@ -33,30 +33,37 @@ func init() {
 func NewConfirm(word string, config *configuration.Config) (outgoing.Trigger, error) {
 
 	confirm := &Confirm{
-		word:   word,
-		prompt: config.GetString("prompt", "please input number for comfirm"),
+		word:            word,
+		currentHandlers: make(map[string]outgoing.TriggerHandleFunc),
 	}
 
-	confirm.currentHandler = confirm.randomHandle
+	if config != nil {
+		confirm.prompt = config.GetString("prompt", "please input number for comfirm")
+	}
+
 	confirm.defaultHandler = confirm.randomHandle
 
 	return confirm, nil
 }
 
 func (p *Confirm) Handle(req *outgoing.Request, resp *outgoing.Response) (err error) {
-	return p.currentHandler(req, resp)
+	if handler, exist := p.currentHandlers[req.UserName]; exist {
+		return handler(req, resp)
+	}
+
+	return p.defaultHandler(req, resp)
 }
 
 func (p *Confirm) randomHandle(req *outgoing.Request, resp *outgoing.Response) (err error) {
-	p.Lock()
-	defer p.Unlock()
 
 	rnd := rand.Int31n(99999)
 	p.beforeReq = req
 
 	resp.Text = fmt.Sprintf("%s: %d", p.prompt, rnd)
 
-	p.currentHandler = p.generateComfirmRandomHandle(rnd, *p.beforeReq)
+	p.Lock()
+	p.currentHandlers[req.UserName] = p.generateComfirmRandomHandle(rnd, *p.beforeReq)
+	p.Unlock()
 
 	return outgoing.ErrBreakOnly
 }
@@ -68,14 +75,16 @@ func (p *Confirm) generateComfirmRandomHandle(number int32, before outgoing.Requ
 
 	fn := func(req *outgoing.Request, resp *outgoing.Response) error {
 		defer func() {
-			p.currentHandler = p.defaultHandler
+			p.Lock()
+			delete(p.currentHandlers, req.UserName)
+			p.Unlock()
 		}()
 
 		if req.UserName != originalReq.UserName {
 			return p.defaultHandler(req, resp)
 		}
 
-		if time.Now().Sub(now).Seconds() > 10 {
+		if time.Now().Sub(now).Seconds() > 30 {
 			return p.defaultHandler(req, resp)
 		}
 
