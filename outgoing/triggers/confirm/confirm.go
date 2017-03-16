@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -90,19 +89,26 @@ func (p *Confirm) generateComfirmRandomHandle(number int32, before outgoing.Requ
 			return p.defaultHandler(req, resp)
 		}
 
-		strNum := strings.TrimSpace(strings.TrimPrefix(req.Text, p.word))
+		args := req.Args()
+
+		if len(args) != 1 {
+			return errors.New("please input numbers")
+		}
+
+		strNum := args[0]
 
 		n, err := strconv.Atoi(strNum)
 		if err != nil {
-			return errors.New("please input number")
+			fmt.Println(err, strNum)
+			return errors.New("please input numbers")
 		}
 
 		if n == 0 {
-			return errors.New("please input number")
+			return errors.New("please input numbers")
 		}
 
 		if num != int32(n) {
-			return errors.New("bad comfirm number")
+			return errors.New("bad comfirm numbers")
 		}
 
 		*req = before

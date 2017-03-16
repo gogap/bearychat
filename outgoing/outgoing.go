@@ -30,7 +30,8 @@ type ErrorHandlerFunc func(cause error) Response
 type NewTriggerFunc func(word string, config *configuration.Config) (Trigger, error)
 
 type Outgoing struct {
-	triggers map[string][]Trigger // map[word]Trigger
+	triggers map[string]*Command // map[word]Command tree
+
 	settings *OutgoingSettings
 
 	config       *configuration.Config
@@ -67,7 +68,7 @@ func RegisterTriggerDriver(name string, fn NewTriggerFunc) {
 func NewOutgoing(config *configuration.Config) (*Outgoing, error) {
 
 	outgoing := &Outgoing{
-		triggers: make(map[string][]Trigger),
+		triggers: make(map[string]*Command),
 		config:   config,
 		settings: NewOutgoingSettings(config),
 	}
@@ -83,14 +84,11 @@ func NewOutgoingTrigger(word string, config *configuration.Config) (Trigger, err
 	return NewOutgoing(config)
 }
 
-func (p *Outgoing) GetTrigger(triggerWord string) (triggers []Trigger, exist bool) {
-	triggers, exist = p.triggers[triggerWord]
-	return
-}
-
 func (p *Outgoing) BindTrigger(config *configuration.Config) *Outgoing {
 	triggerWord := config.GetString("word")
 	triggerWord = strings.TrimSpace(triggerWord)
+
+	commands := config.GetStringList("commands")
 
 	drivers := config.GetStringList("drivers")
 
@@ -104,6 +102,8 @@ func (p *Outgoing) BindTrigger(config *configuration.Config) *Outgoing {
 
 	names := removeDuplicates(drivers)
 
+	var triggers []Trigger
+
 	for i := 0; i < len(names); i++ {
 		triggerDriver, exist := triggerFuncs[names[i]]
 		if !exist {
@@ -115,27 +115,28 @@ func (p *Outgoing) BindTrigger(config *configuration.Config) *Outgoing {
 			panic(err)
 		}
 
-		p.triggers[triggerWord] = append(p.triggers[triggerWord], trigger)
+		triggers = append(triggers, trigger)
 	}
+
+	root := &Command{}
+	node := root
+
+	for i := 0; i < len(commands); i++ {
+		child := &Command{
+			Name: commands[i],
+		}
+
+		if i+1 == len(commands) {
+			child.Triggers = triggers
+		}
+
+		node.AddChild(child)
+		node = child
+	}
+
+	p.triggers[triggerWord] = root
 
 	return p
-}
-
-func (p *Outgoing) Words() []string {
-	var ret []string
-	for k, _ := range p.triggers {
-		ret = append(ret, k)
-	}
-
-	sort.Sort(sort.StringSlice(ret))
-
-	return ret
-}
-
-func (p *Outgoing) UnbindTriggers(triggerWords ...string) {
-	for i := 0; i < len(triggerWords); i++ {
-		delete(p.triggers, triggerWords[i])
-	}
 }
 
 func (p *Outgoing) SetErrorHandler(handler ErrorHandlerFunc) {
@@ -148,13 +149,28 @@ func (p *Outgoing) SetErrorHandler(handler ErrorHandlerFunc) {
 func (p *Outgoing) Handle(req *Request, resp *Response) error {
 
 	word := strings.TrimSpace(req.TriggerWord)
-	triggers, exist := p.triggers[word]
+	treeRoot, exist := p.triggers[word]
+
 	if !exist {
 		return fmt.Errorf("trigger of %s not exist!", word)
 	}
 
-	for i := 0; i < len(triggers); i++ {
-		if err := triggers[i].Handle(req, resp); err != nil {
+	args := req.Args()
+
+	node := treeRoot.Match(args...)
+
+	if node == treeRoot {
+		return fmt.Errorf("unknown sub-command: %s", strings.Join(args, " "))
+	}
+
+	if len(node.Triggers) == 0 {
+		return fmt.Errorf("unfinished sub-command")
+	}
+
+	req.Commands = node.Commands()
+
+	for i := 0; i < len(node.Triggers); i++ {
+		if err := node.Triggers[i].Handle(req, resp); err != nil {
 			return err
 		}
 	}
