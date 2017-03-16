@@ -118,15 +118,26 @@ func (p *Outgoing) BindTrigger(config *configuration.Config) *Outgoing {
 		triggers = append(triggers, trigger)
 	}
 
-	root := &Command{}
-	node := root
+	root, exist := p.triggers[triggerWord]
+	if !exist {
+		root = &Command{}
+	}
 
-	for i := 0; i < len(commands); i++ {
+	node := root.Match(commands...)
+
+	if len(node.Triggers) > 0 {
+		panic(fmt.Errorf("command alrady has triggers: %s", strings.Join(commands, " ")))
+	}
+
+	subCommands := commands[len(node.Commands()):]
+
+	for i := 0; i < len(subCommands); i++ {
+
 		child := &Command{
-			Name: commands[i],
+			Name: subCommands[i],
 		}
 
-		if i+1 == len(commands) {
+		if i+1 == len(subCommands) {
 			child.Triggers = triggers
 		}
 
