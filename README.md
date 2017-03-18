@@ -62,13 +62,13 @@ cp outgoing.conf.example outgoing.conf
                timeout = 5s
                commands = {
                     ping = {
-                    	cmd = ping
-                    	cwd = /
+                        cmd = ping
+                        cwd = /
                     }
 
                     ls = {
-                    	cmd = ls
-                    	cwd = /Users/zhengxujin/Downloads
+                        cmd = ls
+                        cwd = /Users/zhengxujin/Downloads
                     }
                 }
             }
@@ -124,41 +124,41 @@ curl -X POST -H "Content-Type: application/json" -d '{
 package auth
 
 import (
-	"errors"
+    "errors"
 
-	"github.com/go-akka/configuration"
-	"github.com/gogap/bearychat/outgoing"
+    "github.com/go-akka/configuration"
+    "github.com/gogap/bearychat/outgoing"
 )
 
 type Auth struct {
-	word  string
-	token string
+    word  string
+    token string
 }
 
 func init() {
-	outgoing.RegisterTriggerDriver("gogap-auth", NewAuth)
+    outgoing.RegisterTriggerDriver("gogap-auth", NewAuth)
 }
 
 func NewAuth(word string, config *configuration.Config) (outgoing.Trigger, error) {
-	return &Auth{
-		word:  word,
-		token: config.GetString("token"),
-	}, nil
+    return &Auth{
+        word:  word,
+        token: config.GetString("token"),
+    }, nil
 }
 
 func (p *Auth) Handle(req *outgoing.Request, resp *outgoing.Response) (err error) {
 
-	if req.TriggerWord != p.word {
-		err = errors.New("bad request trigger word in gogap-auth")
-		return
-	}
+    if req.TriggerWord != p.word {
+        err = errors.New("bad request trigger word in gogap-auth")
+        return
+    }
 
-	if req.Token != p.token {
-		err = errors.New("error auth token")
-		return
-	}
+    if req.Token != p.token {
+        err = errors.New("error auth token")
+        return
+    }
 
-	return
+    return
 }
 ```
 
@@ -174,8 +174,8 @@ func (p *Auth) Handle(req *outgoing.Request, resp *outgoing.Response) (err error
 package main
 
 import (
-	_ "github.com/gogap/bearychat/outgoing/triggers/auth"
-	... //此处可以添加更多的Trigger
+    _ "github.com/gogap/bearychat/outgoing/triggers/auth"
+    ... //此处可以添加更多的Trigger
 )
 ```
 
@@ -211,6 +211,56 @@ outgoing {
 
 ### Incoming
 
-后续会加入异步执行，有些任务执行时间会很长，执行结束后会通过Incoming方式发送给特定的`channel`
+- Request
 
-- TODO
+```go
+type Request struct {
+    Text         string       `json:"text"`
+    Notification string       `json:"notification"`
+    Markdown     bool         `json:"markdown"`
+    Channel      string       `json:"channel"`
+    User         string       `json:"user"`
+    Attachments  []Attachment `json:"attachments"`
+}
+```
+
+- Response
+
+```go
+type Response struct {
+    Code   int         `json:"code"`
+    Error  string      `json:"error"`
+    Result interface{} `json:"result"`
+}
+```
+
+#### 使用方法
+
+```go
+package main
+
+import (
+    "fmt"
+
+    "github.com/gogap/bearychat/incoming"
+)
+
+func main() {
+
+    client := incoming.NewClient()
+
+    req := incoming.Request{
+        Text: "愿原力与你同在",
+    }
+
+    resp, err := client.Send("=ba7Ld", "ae28af7a66e16effe45f71365d6b21dc", &req)
+
+    if err != nil {
+        fmt.Println(err.Error())
+        return
+    }
+
+    fmt.Println(resp)
+}
+
+```
