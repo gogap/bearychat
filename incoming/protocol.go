@@ -60,6 +60,16 @@ func NewClient(opts ...ClientOption) *Client {
 
 func (p *Client) Send(robotId string, token string, req *Request) (resp *Response, err error) {
 
+	if len(robotId) == 0 {
+		err = errors.New("robot id is empty")
+		return
+	}
+
+	if len(token) == 0 {
+		err = errors.New("token is empty")
+		return
+	}
+
 	if req == nil {
 		err = errors.New("empty request")
 		return
@@ -72,7 +82,7 @@ func (p *Client) Send(robotId string, token string, req *Request) (resp *Respons
 
 	url := fmt.Sprintf("https://hook.bearychat.com/%s/incoming/%s", robotId, token)
 
-	httpResp, err := http.DefaultClient.Post(url, "application/json", bytes.NewBuffer(body))
+	httpResp, err := p.client.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		return
 	}
