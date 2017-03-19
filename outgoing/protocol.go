@@ -52,5 +52,6 @@ type Attachment struct {
 
 type Response struct {
 	Text        string       `json:"text"`
+	Markdown    bool         `json:"markdown"`
 	Attachments []Attachment `json:"attachments"`
 }
