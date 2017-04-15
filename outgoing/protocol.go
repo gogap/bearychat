@@ -27,16 +27,7 @@ func (p *Request) Args() []string {
 		return nil
 	}
 
-	var retArgs []string
-	args := strings.Split(strArgs, " ")
-
-	for i := 0; i < len(args); i++ {
-		s := strings.TrimSpace(args[i])
-		if len(s) != 0 {
-			retArgs = append(retArgs, s)
-		}
-	}
-	return retArgs
+	return strings.Fields(strArgs)
 }
 
 type Image struct {
