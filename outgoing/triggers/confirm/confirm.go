@@ -9,31 +9,31 @@ import (
 	"time"
 
 	"github.com/go-akka/configuration"
-	"github.com/gogap/bearychat/outgoing"
+	"github.com/gogap/bearychat"
 )
 
 type Confirm struct {
 	word   string
 	prompt string
 
-	beforeReq        *outgoing.Request
+	beforeReq        *bearychat.OutgoingRequest
 	randomNumber     int32
 	randomNumberTime time.Time
-	currentHandlers  map[string]outgoing.TriggerHandleFunc
-	defaultHandler   func(req *outgoing.Request, resp *outgoing.Response) (err error)
+	currentHandlers  map[string]bearychat.TriggerHandleFunc
+	defaultHandler   func(req *bearychat.OutgoingRequest, msg *bearychat.Message) (err error)
 
 	sync.Mutex
 }
 
 func init() {
-	outgoing.RegisterTriggerDriver("gogap-confirm", NewConfirm)
+	bearychat.RegisterTriggerDriver("gogap-confirm", NewConfirm)
 }
 
-func NewConfirm(word string, config *configuration.Config) (outgoing.Trigger, error) {
+func NewConfirm(word string, config *configuration.Config) (bearychat.Trigger, error) {
 
 	confirm := &Confirm{
 		word:            word,
-		currentHandlers: make(map[string]outgoing.TriggerHandleFunc),
+		currentHandlers: make(map[string]bearychat.TriggerHandleFunc),
 	}
 
 	if config != nil {
@@ -47,15 +47,15 @@ func NewConfirm(word string, config *configuration.Config) (outgoing.Trigger, er
 	return confirm, nil
 }
 
-func (p *Confirm) Handle(req *outgoing.Request, resp *outgoing.Response) (err error) {
+func (p *Confirm) Handle(req *bearychat.OutgoingRequest, msg *bearychat.Message) (err error) {
 	if handler, exist := p.currentHandlers[req.UserName]; exist {
-		return handler(req, resp)
+		return handler(req, msg)
 	}
 
-	return p.defaultHandler(req, resp)
+	return p.defaultHandler(req, msg)
 }
 
-func (p *Confirm) randomHandle(req *outgoing.Request, resp *outgoing.Response) (err error) {
+func (p *Confirm) randomHandle(req *bearychat.OutgoingRequest, resp *bearychat.Message) (err error) {
 
 	rnd := rand.Int31n(99999)
 	p.beforeReq = req
@@ -66,15 +66,15 @@ func (p *Confirm) randomHandle(req *outgoing.Request, resp *outgoing.Response) (
 	p.currentHandlers[req.UserName] = p.generateComfirmRandomHandle(rnd, *p.beforeReq)
 	p.Unlock()
 
-	return outgoing.ErrBreakOnly
+	return bearychat.ErrBreakOnly
 }
 
-func (p *Confirm) generateComfirmRandomHandle(number int32, before outgoing.Request) func(*outgoing.Request, *outgoing.Response) error {
+func (p *Confirm) generateComfirmRandomHandle(number int32, before bearychat.OutgoingRequest) func(*bearychat.OutgoingRequest, *bearychat.Message) error {
 	now := time.Now()
 	num := number
 	originalReq := before
 
-	fn := func(req *outgoing.Request, resp *outgoing.Response) error {
+	fn := func(req *bearychat.OutgoingRequest, resp *bearychat.Message) error {
 		defer func() {
 			p.Lock()
 			delete(p.currentHandlers, req.UserName)

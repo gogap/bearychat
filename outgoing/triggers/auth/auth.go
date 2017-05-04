@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/go-akka/configuration"
-	"github.com/gogap/bearychat/outgoing"
+	"github.com/gogap/bearychat"
 )
 
 type Auth struct {
@@ -13,17 +13,17 @@ type Auth struct {
 }
 
 func init() {
-	outgoing.RegisterTriggerDriver("gogap-auth", NewAuth)
+	bearychat.RegisterTriggerDriver("gogap-auth", NewAuth)
 }
 
-func NewAuth(word string, config *configuration.Config) (outgoing.Trigger, error) {
+func NewAuth(word string, config *configuration.Config) (bearychat.Trigger, error) {
 	return &Auth{
 		word:  word,
 		token: config.GetString("token"),
 	}, nil
 }
 
-func (p *Auth) Handle(req *outgoing.Request, resp *outgoing.Response) (err error) {
+func (p *Auth) Handle(req *bearychat.OutgoingRequest, msg *bearychat.Message) (err error) {
 
 	if req.TriggerWord != p.word {
 		err = errors.New("bad request trigger word in gogap-auth")

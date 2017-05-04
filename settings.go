@@ -1,4 +1,4 @@
-package outgoing
+package bearychat
 
 import (
 	"github.com/go-akka/configuration"

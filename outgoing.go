@@ -1,4 +1,4 @@
-package outgoing
+package bearychat
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-akka/configuration"
+	"github.com/gogap/bearychat/internal"
 )
 
 const (
@@ -25,12 +26,12 @@ var (
 	ErrBreakOnly                      = errors.New("break only")
 )
 
-type ErrorHandlerFunc func(cause error) Response
+type ErrorHandlerFunc func(cause error) Message
 
 type NewTriggerFunc func(word string, config *configuration.Config) (Trigger, error)
 
 type Outgoing struct {
-	triggers map[string]*Command // map[word]Command tree
+	triggers map[string]*internal.Command // map[word]Command tree
 
 	settings *OutgoingSettings
 
@@ -68,7 +69,7 @@ func RegisterTriggerDriver(name string, fn NewTriggerFunc) {
 func NewOutgoing(config *configuration.Config) (*Outgoing, error) {
 
 	outgoing := &Outgoing{
-		triggers: make(map[string]*Command),
+		triggers: make(map[string]*internal.Command),
 		config:   config,
 		settings: NewOutgoingSettings(config),
 	}
@@ -102,7 +103,7 @@ func (p *Outgoing) BindTrigger(config *configuration.Config) *Outgoing {
 
 	names := removeDuplicates(drivers)
 
-	var triggers []Trigger
+	var triggers []interface{}
 
 	for i := 0; i < len(names); i++ {
 		triggerDriver, exist := triggerFuncs[names[i]]
@@ -120,12 +121,12 @@ func (p *Outgoing) BindTrigger(config *configuration.Config) *Outgoing {
 
 	root, exist := p.triggers[triggerWord]
 	if !exist {
-		root = &Command{}
+		root = &internal.Command{}
 	}
 
 	node := root.Match(commands...)
 
-	if len(node.Triggers) > 0 {
+	if len(node.Values) > 0 {
 		panic(fmt.Errorf("command alrady has triggers: %s", strings.Join(commands, " ")))
 	}
 
@@ -133,12 +134,12 @@ func (p *Outgoing) BindTrigger(config *configuration.Config) *Outgoing {
 
 	for i := 0; i < len(subCommands); i++ {
 
-		child := &Command{
+		child := &internal.Command{
 			Name: subCommands[i],
 		}
 
 		if i+1 == len(subCommands) {
-			child.Triggers = triggers
+			child.Values = triggers
 		}
 
 		node.AddChild(child)
@@ -157,7 +158,7 @@ func (p *Outgoing) SetErrorHandler(handler ErrorHandlerFunc) {
 	}
 }
 
-func (p *Outgoing) Handle(req *Request, resp *Response) error {
+func (p *Outgoing) Handle(req *OutgoingRequest, msg *Message) error {
 
 	word := strings.TrimSpace(req.TriggerWord)
 	treeRoot, exist := p.triggers[word]
@@ -174,14 +175,14 @@ func (p *Outgoing) Handle(req *Request, resp *Response) error {
 		return fmt.Errorf("unknown sub-command: %s", strings.Join(args, " "))
 	}
 
-	if len(node.Triggers) == 0 {
+	if len(node.Values) == 0 {
 		return fmt.Errorf("unfinished sub-command")
 	}
 
 	req.Commands = node.Commands()
 
-	for i := 0; i < len(node.Triggers); i++ {
-		if err := node.Triggers[i].Handle(req, resp); err != nil {
+	for i := 0; i < len(node.Values); i++ {
+		if err := node.Values[i].(Trigger).Handle(req, msg); err != nil {
 			return err
 		}
 	}
@@ -199,31 +200,31 @@ func (p *Outgoing) HandleHttpRequest(rw http.ResponseWriter, req *http.Request) 
 	decoder := json.NewDecoder(req.Body)
 	decoder.UseNumber()
 
-	triggerReq := &Request{}
+	triggerReq := &OutgoingRequest{}
 	err := decoder.Decode(triggerReq)
 
-	resp := Response{}
+	msg := Message{}
 	if err != nil {
-		resp = p.errorHandler(err)
+		msg = p.errorHandler(err)
 	} else {
-		err = p.Handle(triggerReq, &resp)
+		err = p.Handle(triggerReq, &msg)
 		if err == ErrBreakOnly {
 			err = nil
 		}
 
 		if err != nil {
-			resp = p.errorHandler(err)
+			msg = p.errorHandler(err)
 		}
 	}
 
-	jsonResp, _ := json.Marshal(resp)
+	jsonMsg, _ := json.Marshal(msg)
 
 	rw.Header().Set("Content-Type", "application/json")
-	rw.Write(jsonResp)
+	rw.Write(jsonMsg)
 }
 
-func (p *Outgoing) handleError(cause error) Response {
-	return Response{
+func (p *Outgoing) handleError(cause error) Message {
+	return Message{
 		Text: cause.Error(),
 	}
 }

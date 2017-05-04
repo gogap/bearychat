@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/go-akka/configuration"
-	"github.com/gogap/bearychat/outgoing"
+	"github.com/gogap/bearychat"
 )
 
 type _CMD struct {
@@ -26,10 +26,10 @@ type Commands struct {
 }
 
 func init() {
-	outgoing.RegisterTriggerDriver("gogap-commands", NewCommands)
+	bearychat.RegisterTriggerDriver("gogap-commands", NewCommands)
 }
 
-func NewCommands(word string, config *configuration.Config) (outgoing.Trigger, error) {
+func NewCommands(word string, config *configuration.Config) (bearychat.Trigger, error) {
 
 	commandConfig := config.GetConfig("commands")
 	namePath := make(map[string]_CMD)
@@ -62,7 +62,7 @@ func NewCommands(word string, config *configuration.Config) (outgoing.Trigger, e
 	}, nil
 }
 
-func (p *Commands) Handle(req *outgoing.Request, resp *outgoing.Response) error {
+func (p *Commands) Handle(req *bearychat.OutgoingRequest, msg *bearychat.Message) error {
 
 	args := strings.Split(req.Text, " ")
 	if len(args) <= 1 {
@@ -95,7 +95,7 @@ func (p *Commands) Handle(req *outgoing.Request, resp *outgoing.Response) error 
 		return err
 	}
 
-	resp.Text = result
+	msg.Text = result
 
 	return nil
 }

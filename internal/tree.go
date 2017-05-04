@@ -1,8 +1,8 @@
-package outgoing
+package internal
 
 type Command struct {
 	Name     string
-	Triggers []Trigger
+	Values   []interface{}
 	Father   *Command
 	Children []*Command
 }

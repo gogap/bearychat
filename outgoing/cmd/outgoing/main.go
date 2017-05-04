@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/go-akka/configuration"
-	"github.com/gogap/bearychat/outgoing"
+	"github.com/gogap/bearychat"
 	"github.com/urfave/cli"
 	"github.com/urfave/negroni"
 )
@@ -35,7 +35,7 @@ func cmdRun(c *cli.Context) (err error) {
 	filename := c.String(ConfigFlag.Name)
 
 	if len(filename) == 0 {
-		filename = "outgoing.conf"
+		filename = "bearychat.conf"
 	}
 
 	config := configuration.LoadConfig(filename)
@@ -54,7 +54,7 @@ func cmdRun(c *cli.Context) (err error) {
 		return
 	}
 
-	var out *outgoing.Outgoing
+	var out *bearychat.Outgoing
 	out, err = initOutgoing(outgoingConfig)
 	if err != nil {
 		return
@@ -74,8 +74,8 @@ func cmdRun(c *cli.Context) (err error) {
 	return err
 }
 
-func initOutgoing(config *configuration.Config) (*outgoing.Outgoing, error) {
-	outgoing, err := outgoing.NewOutgoing(config)
+func initOutgoing(config *configuration.Config) (*bearychat.Outgoing, error) {
+	outgoing, err := bearychat.NewOutgoing(config)
 	if err != nil {
 		return nil, err
 	}

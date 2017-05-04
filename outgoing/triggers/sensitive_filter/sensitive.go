@@ -4,7 +4,7 @@ import (
 	"regexp"
 
 	"github.com/go-akka/configuration"
-	"github.com/gogap/bearychat/outgoing"
+	"github.com/gogap/bearychat"
 )
 
 type Sensitive struct {
@@ -12,10 +12,10 @@ type Sensitive struct {
 }
 
 func init() {
-	outgoing.RegisterTriggerDriver("gogap-sensitive-filter", NewSensitive)
+	bearychat.RegisterTriggerDriver("gogap-sensitive-filter", NewSensitive)
 }
 
-func NewSensitive(word string, config *configuration.Config) (outgoing.Trigger, error) {
+func NewSensitive(word string, config *configuration.Config) (bearychat.Trigger, error) {
 
 	if config == nil {
 		return &Sensitive{}, nil
@@ -37,18 +37,18 @@ func NewSensitive(word string, config *configuration.Config) (outgoing.Trigger, 
 	return &Sensitive{expressions: regExprs}, nil
 }
 
-func (p *Sensitive) Handle(req *outgoing.Request, resp *outgoing.Response) (err error) {
+func (p *Sensitive) Handle(req *bearychat.OutgoingRequest, msg *bearychat.Message) (err error) {
 
 	if len(p.expressions) == 0 {
 		return
 	}
 
-	txt := resp.Text
+	txt := msg.Text
 	for i := 0; i < len(p.expressions); i++ {
 		txt = p.expressions[i].ReplaceAllString(txt, "******")
 	}
 
-	resp.Text = txt
+	msg.Text = txt
 
 	return
 }

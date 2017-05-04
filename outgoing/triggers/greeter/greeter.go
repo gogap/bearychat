@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/go-akka/configuration"
-	"github.com/gogap/bearychat/outgoing"
+	"github.com/gogap/bearychat"
 )
 
 type Greeter struct {
@@ -14,10 +14,10 @@ type Greeter struct {
 }
 
 func init() {
-	outgoing.RegisterTriggerDriver("gogap-greeter", NewGreeter)
+	bearychat.RegisterTriggerDriver("gogap-greeter", NewGreeter)
 }
 
-func NewGreeter(word string, config *configuration.Config) (outgoing.Trigger, error) {
+func NewGreeter(word string, config *configuration.Config) (bearychat.Trigger, error) {
 	return &Greeter{
 		word:  word,
 		name:  config.GetString("name"),
@@ -25,15 +25,15 @@ func NewGreeter(word string, config *configuration.Config) (outgoing.Trigger, er
 	}, nil
 }
 
-func (p *Greeter) Handle(req *outgoing.Request, resp *outgoing.Response) error {
+func (p *Greeter) Handle(req *bearychat.OutgoingRequest, msg *bearychat.Message) error {
 
 	switch req.TriggerWord {
 	case "!hello":
 		{
-			resp.Text = "Hello " + req.UserName + " I am " + p.name
-			resp.Attachments = []outgoing.Attachment{
+			msg.Text = "Hello " + req.UserName + " I am " + p.name
+			msg.Attachments = []bearychat.Attachment{
 				{
-					Images: []outgoing.Image{
+					Images: []bearychat.Image{
 						{URL: p.image},
 					},
 				},
@@ -41,10 +41,10 @@ func (p *Greeter) Handle(req *outgoing.Request, resp *outgoing.Response) error {
 		}
 	case "!morning":
 		{
-			resp.Text = "Morning " + req.UserName + " I am " + p.name
-			resp.Attachments = []outgoing.Attachment{
+			msg.Text = "Morning " + req.UserName + " I am " + p.name
+			msg.Attachments = []bearychat.Attachment{
 				{
-					Images: []outgoing.Image{
+					Images: []bearychat.Image{
 						{URL: p.image},
 					},
 				},
