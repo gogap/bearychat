@@ -35,9 +35,9 @@ func NewConfirm(word string, config *configuration.Config) (bearychat.Trigger, e
 	}
 
 	if config != nil {
-		confirm.prompt = config.GetString("prompt", "please input number for comfirm")
+		confirm.prompt = config.GetString("prompt", "please input numbers for comfirm")
 	} else {
-		confirm.prompt = "please input number for comfirm"
+		confirm.prompt = "please input numbers for comfirm"
 	}
 
 	confirm.defaultHandler = confirm.randomHandle
@@ -90,18 +90,18 @@ func (p *Confirm) generateComfirmRandomHandle(number int32, before bearychat.Out
 		args := req.Args()
 
 		if len(args) != 1 {
-			return errors.New("please input numbers")
+			return errors.New(p.prompt)
 		}
 
 		strNum := args[0]
 
 		n, err := strconv.Atoi(strNum)
 		if err != nil {
-			return errors.New("please input numbers")
+			return errors.New(p.prompt)
 		}
 
 		if n == 0 {
-			return errors.New("please input numbers")
+			return errors.New(p.prompt)
 		}
 
 		if num != int32(n) {
