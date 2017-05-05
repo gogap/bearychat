@@ -2,7 +2,6 @@ package confirm
 
 import (
 	"errors"
-	"fmt"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"sync"
@@ -67,7 +66,6 @@ func NewTOTPConfirm(word string, config *configuration.Config) (bearychat.Trigge
 
 func (p *TOTPConfirm) Handle(req *bearychat.OutgoingRequest, msg *bearychat.Message) (err error) {
 	if handler, exist := p.currentHandlers[req.UserName]; exist {
-		fmt.Println("exist", handler)
 		return handler(req, msg)
 	}
 
