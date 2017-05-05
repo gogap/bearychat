@@ -16,11 +16,9 @@ type Confirm struct {
 	word   string
 	prompt string
 
-	beforeReq        *bearychat.OutgoingRequest
-	randomNumber     int32
-	randomNumberTime time.Time
-	currentHandlers  map[string]bearychat.TriggerHandleFunc
-	defaultHandler   func(req *bearychat.OutgoingRequest, msg *bearychat.Message) (err error)
+	beforeReq       *bearychat.OutgoingRequest
+	currentHandlers map[string]bearychat.TriggerHandleFunc
+	defaultHandler  bearychat.TriggerHandleFunc
 
 	sync.Mutex
 }
@@ -69,12 +67,12 @@ func (p *Confirm) randomHandle(req *bearychat.OutgoingRequest, resp *bearychat.M
 	return bearychat.ErrBreakOnly
 }
 
-func (p *Confirm) generateComfirmRandomHandle(number int32, before bearychat.OutgoingRequest) func(*bearychat.OutgoingRequest, *bearychat.Message) error {
+func (p *Confirm) generateComfirmRandomHandle(number int32, before bearychat.OutgoingRequest) bearychat.TriggerHandleFunc {
 	now := time.Now()
 	num := number
 	originalReq := before
 
-	fn := func(req *bearychat.OutgoingRequest, resp *bearychat.Message) error {
+	fn := func(req *bearychat.OutgoingRequest, msg *bearychat.Message) error {
 		defer func() {
 			p.Lock()
 			delete(p.currentHandlers, req.UserName)
@@ -82,11 +80,11 @@ func (p *Confirm) generateComfirmRandomHandle(number int32, before bearychat.Out
 		}()
 
 		if req.UserName != originalReq.UserName {
-			return p.defaultHandler(req, resp)
+			return p.defaultHandler(req, msg)
 		}
 
 		if time.Now().Sub(now).Seconds() > 30 {
-			return p.defaultHandler(req, resp)
+			return p.defaultHandler(req, msg)
 		}
 
 		args := req.Args()
@@ -99,7 +97,6 @@ func (p *Confirm) generateComfirmRandomHandle(number int32, before bearychat.Out
 
 		n, err := strconv.Atoi(strNum)
 		if err != nil {
-			fmt.Println(err, strNum)
 			return errors.New("please input numbers")
 		}
 
