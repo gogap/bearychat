@@ -107,14 +107,14 @@ func (p *TOTPConfirm) generateComfirmHandle(before bearychat.OutgoingRequest) be
 			return p.defaultHandler(req, msg)
 		}
 
-		if time.Now().Sub(now).Seconds() > p.period {
+		if time.Now().Sub(now).Seconds() > float64(p.period) {
 			return p.defaultHandler(req, msg)
 		}
 
 		args := req.Args()
 
 		if len(args) != 1 {
-			return errors.New(p.period)
+			return errors.New(p.prompt)
 		}
 
 		passcode := args[0]
