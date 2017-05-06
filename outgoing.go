@@ -24,6 +24,7 @@ var (
 	ErrTriggerDriverAlreadyRegistered = errors.New("trigger driver already registered")
 	ErrNewTriggerFuncIsNil            = errors.New("trigger func is nil")
 	ErrBreakOnly                      = errors.New("break only")
+	ErrNoContent                      = errors.New("no content")
 )
 
 type ErrorHandlerFunc func(cause error) Message
@@ -203,6 +204,8 @@ func (p *Outgoing) HandleHttpRequest(rw http.ResponseWriter, req *http.Request) 
 	triggerReq := &OutgoingRequest{}
 	err := decoder.Decode(triggerReq)
 
+	statusCode := 200
+
 	msg := Message{}
 	if err != nil {
 		msg = p.errorHandler(err)
@@ -210,6 +213,9 @@ func (p *Outgoing) HandleHttpRequest(rw http.ResponseWriter, req *http.Request) 
 		err = p.Handle(triggerReq, &msg)
 		if err == ErrBreakOnly {
 			err = nil
+		} else if err == ErrNoContent {
+			err = nil
+			statusCode = 204
 		}
 
 		if err != nil {
@@ -220,7 +226,12 @@ func (p *Outgoing) HandleHttpRequest(rw http.ResponseWriter, req *http.Request) 
 	jsonMsg, _ := json.Marshal(msg)
 
 	rw.Header().Set("Content-Type", "application/json")
-	rw.Write(jsonMsg)
+
+	if statusCode != 200 {
+		rw.WriteHeader(statusCode)
+	} else {
+		rw.Write(jsonMsg)
+	}
 }
 
 func (p *Outgoing) handleError(cause error) Message {
